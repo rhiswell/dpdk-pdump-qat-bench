@@ -18,8 +18,8 @@ function bench_qzip_compression_ratio
     # Variables: raw vs. pcap & http vs. https & different data type
     # Workload: web, (OLTP queries,) video, (mixed)
     # Metrics: compression ratio
-    input_arr=( video-http.pcap video-https.pcap video.tar web-http.pcap web-https.pcap web.tar )
-    output_file=output/qzip_compression_ratio.csv
+    local input_arr=(video-http.pcap video-https.pcap video.tar web-http.pcap web-https.pcap web.tar)
+    local output_file=output/qzip_compression_ratio.csv
 
     printf "labels,compression ratio\n" >${output_file}
     for label in "${input_arr[@]}"; do
@@ -29,12 +29,38 @@ function bench_qzip_compression_ratio
     done
 }
 
-function bench_qzip_throughput
+qzip_compression_level=(1 2 3 4)
+# 4KB / 16KB / 64KB / 128KB / 512KB
+qzip_compression_chunksz=(4096 16384 65536 131072 524288)
+# for i in `seq -f %04g 0 999`; do cp web-http.pcap web-http$i.pcap; done
+# tar -cf web-http-huge.pcap web-http-pcap-replicas
+function bench_qzip_throughput_and_compression_ratio
 {
-    # Variables: sync vs. async & number of QAT instance
-    # Workload: htmls & OLTP queries in 10Gbps
-    # Metrics: QAT TP
-    echo
+    local input_file=input/web-http-huge.pcap
+    local output_file_level=output/qzip_throughput_level.csv
+    local output_file_chunk=output/qzip_throughput_chunk.csv
+
+    printf "compression level,thoughput (Mbps),compression ratio\n" >${output_file_level}
+    for level in "${qzip_compression_level[@]}"; do
+        echo -n "$level," >>${output_file_level}
+        qzip -L $level -k ${input_file} 2>/dev/null | \
+            grep -E 'Throughput|ratio' | \
+            awk -F':' '{ print $2 }' | \
+            grep -Eo '[0-9]+([.][0-9]+)?' | \
+            tr '\n' ',' >>${output_file_level}
+        echo >>${output_file_level}
+    done
+
+    printf "chunk size (bytes),thoughput (Mbps),compression ratio\n" >${output_file_chunk}
+    for chunksz in "${qzip_compression_chunksz[@]}"; do
+        echo -n "$chunksz," >>${output_file_chunk}
+        qzip -C $chunksz -k ${input_file} 2>/dev/null | \
+            grep -E 'Throughput|ratio' | \
+            awk -F':' '{ print $2 }' | \
+            grep -Eo '[0-9]+([.][0-9]+)?' | \
+            tr '\n' ',' >>${output_file_chunk}
+        echo >>${output_file_chunk}
+    done
 }
 
 case $1 in 
@@ -42,7 +68,7 @@ case $1 in
         bench_qzip_compression_ratio
         ;;
     qtp)
-        bench_qzip_throughput
+        bench_qzip_throughput_and_compression_ratio
         ;;
     dio)
         bench_disk_IO_throughput

@@ -2,7 +2,7 @@
 
 set -x
 
-qat_server_url=root@192.168.1.126
+qat=root@192.168.1.126
 remote_project_root=/root/bench-dpdk-pdump-qat
 remote_dpdk_root=/root/DPDK/dpdk-stable-17.11.1-origin
 remote_icp_root=/root/QAT1.7
@@ -14,39 +14,44 @@ remote_env_vars="RTE_SDK=${remote_dpdk_root} RTE_TARGET=build ICP_ROOT=${remote_
 
 function build
 {
-    ssh ${qat_server_url} "mkdir -p ${remote_project_root}" && \
-        scp main.c Makefile ${qat_server_url}:${remote_project_root} && \
-        ssh ${qat_server_url} "make -C ${remote_project_root} ${remote_env_vars}"
+    ssh $qat "mkdir -p ${remote_project_root}" && \
+        scp main.c Makefile $qat:${remote_project_root} && \
+        ssh $qat "make -C ${remote_project_root} ${remote_env_vars}"
 
-    ssh ${qat_server_url} "test -f ${remote_l3fwd_bin} ||
+    ssh $qat "test -f ${remote_l3fwd_bin} ||
         make -C ${remote_l3fwd_dir} ${remote_env_vars}"
 }
 
 function run_test
 {
-    ssh ${qat_server_url} "timeout 16 ${remote_l3fwd_bin} -l 1,2 -n 4 -- -p 0x3 --config=\"(0,0,1),(1,0,2)\""
+    ssh $qat "timeout 16 ${remote_l3fwd_bin} -l 1,2 -n 4 -- -p 0x3 --config=\"(0,0,1),(1,0,2)\""
 }
 
 function setup_dpdk
 {
-    ssh ${qat_server_url} "modprobe uio && cd ${remote_dpdk_root} && 
+    ssh $qat "modprobe uio && cd ${remote_dpdk_root} && 
         (insmod ./build/kmod/igb_uio.ko || true) &&
         ./usertools/dpdk-devbind.py -b igb_uio 03:00.0 03:00.1"
-    ssh ${qat_server_url} "mkdir -p /mnt/huge && (umount /mnt/huge || true) && 
+    ssh $qat "mkdir -p /mnt/huge && (umount /mnt/huge || true) && 
         mount -t hugetlbfs nodev /mnt/huge && 
         echo 256 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages"
 }
 
 function restart_nginx
 {
-    scp nginx.conf ${qat_server_url}:/etc/nginx/ && ssh ${qat_server_url} "systemctl restart nginx"
+    scp nginx.conf $qat:/etc/nginx/ && ssh $qat "systemctl restart nginx"
+}
+
+function restart_qat_service
+{
+    scp dh895xcc_dev0.conf $qat:/etc/ && ssh $qat "service qat_service restart"
 }
 
 function benchmark
 {
     local bench_id=$1
-    scp bench ${qat_server_url}:${remote_project_root}/ && \
-        ssh ${qat_server_url} "cd ${remote_project_root} && bash bench ${bench_id}"
+    scp bench $qat:${remote_project_root}/ && \
+        ssh $qat "cd ${remote_project_root} && bash bench ${bench_id}"
 }
 
 case $1 in
@@ -61,6 +66,9 @@ case $1 in
         ;;
     nginx)
         restart_nginx
+        ;;
+    qat)
+        restart_qat_service
         ;;
     bench)
         benchmark $2
