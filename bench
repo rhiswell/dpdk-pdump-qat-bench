@@ -1,0 +1,53 @@
+#!/bin/bash
+
+set -x
+
+function bench_disk_IO_throughput
+{
+    # Variables: none
+    # Workload: none
+    # Metrics: sequential write TP
+    echo
+}
+
+# tcpdump port http or https -i lo -w https-video.pcap
+# wget -P output -c -r -np -k -L -p http://192.168.1.126/web/
+# wget -P output -c -r -np -k -L -p http://192.168.1.126/video/
+function bench_qzip_compression_ratio
+{
+    # Variables: raw vs. pcap & http vs. https & different data type
+    # Workload: web, (OLTP queries,) video, (mixed)
+    # Metrics: compression ratio
+    input_arr=( video-http.pcap video-https.pcap video.tar web-http.pcap web-https.pcap web.tar )
+    output_file=output/qzip_compression_ratio.csv
+
+    printf "labels,compression ratio\n" >${output_file}
+    for label in "${input_arr[@]}"; do
+        echo -n "$label," >>${output_file}
+        qzip -k input/$label 2>/dev/null | grep ratio | awk -F':' '{ print $2 }' | tr -d '\n' >>${output_file}
+        echo >>${output_file}
+    done
+}
+
+function bench_qzip_throughput
+{
+    # Variables: sync vs. async & number of QAT instance
+    # Workload: htmls & OLTP queries in 10Gbps
+    # Metrics: QAT TP
+    echo
+}
+
+case $1 in 
+    cr)
+        bench_qzip_compression_ratio
+        ;;
+    qtp)
+        bench_qzip_throughput
+        ;;
+    dio)
+        bench_disk_IO_throughput
+        ;;
+    *)
+        echo "Usage: $0 <bench_id>"
+        exit 1;
+esac
