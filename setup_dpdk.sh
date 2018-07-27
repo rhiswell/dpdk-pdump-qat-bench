@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -x
 set -ueo pipefail
 
 RTE_SDK=/root/DPDK/dpdk-18.05
