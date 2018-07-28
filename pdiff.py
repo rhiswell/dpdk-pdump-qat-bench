@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-pkt = lambda fpath: rdpcap(fpath)
+pkts = lambda fpath: rdpcap(fpath)
 
 
 def plot(base_event, filtered_event):

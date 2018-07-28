@@ -11,9 +11,16 @@ REMOTE_L3FWD_BIN=${REMOTE_L3FWD_DIR}/build/l3fwd
 REMOTE_PDUMP_QAT=${REMOTE_PROJECT_ROOT}/dpdk-pdump-qat
 REMOTE_ENV_VARS="RTE_SDK=${REMOTE_DPDK_ROOT} RTE_TARGET=build ICP_ROOT=${REMOTE_ICP_ROOT} QATZIP_ROOT=${REMOTE_QATZIP_ROOT}"
 
-function print_usage
+function app_echo
 {
-    echo "Usage: $0 <host> <command> [path_to_script] ['script_args']"
+    local msg=${1:-}
+    echo "REMOTE: $msg"
+}
+
+function print_usage_then_die
+{
+    app_echo "Usage: $0 <host> <command> [path_to_script] ['script_args']"
+    exit 1
 }
 
 qat_server=${1:-}
@@ -21,12 +28,9 @@ cmd=${2:-}
 script_to_run=${3:-}
 script_args=${4:-}
 
-echo "Do execute cmd: $0 ${qat_server} ${cmd} ${script_to_run} ${script_args}"
+app_echo "Do execute cmd: $0 ${qat_server} ${cmd} ${script_to_run} ${script_args}"
 
-if [[ -z "${qat_server}" ]] || [[ -z "${cmd}" ]]; then
-    print_usage
-    exit 1
-fi
+([[ -z "${qat_server}" ]] || [[ -z "${cmd}" ]]) && print_usage_then_die
 
 function init_project
 {
@@ -38,7 +42,7 @@ function run_script
     local script_to_run="$1"
     local script_args="${2:-}"
 
-    scp ${script_to_run} ${qat_server}:${REMOTE_PROJECT_ROOT}/ && \
+    scp -q ${script_to_run} ${qat_server}:${REMOTE_PROJECT_ROOT}/ && \
         ssh ${qat_server} "cd ${REMOTE_PROJECT_ROOT} && bash ${script_to_run} ${script_args}"
 }
 
@@ -47,7 +51,7 @@ case $cmd in
         init_project
         ;;
     run)
-        run_script ${script_to_run} ${script_args}
+        run_script ${script_to_run} "${script_args}"
         ;;
     *)
         print_usage
