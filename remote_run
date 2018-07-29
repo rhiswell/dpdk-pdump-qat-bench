@@ -1,0 +1,52 @@
+#!/bin/bash
+
+set -euo pipefail
+
+
+REMOTE_PROJECT_ROOT=/root/workspace/bench-dpdk-pdump-qat
+REMOTE_DPDK_ROOT=/root/DPDK/dpdk-18.05
+REMOTE_ICP_ROOT=/root/QAT
+REMOTE_QATZIP_ROOT=/root/QATzip
+REMOTE_ENV_VARS="RTE_SDK=${REMOTE_DPDK_ROOT} RTE_TARGET=build ICP_ROOT=${REMOTE_ICP_ROOT} QATZIP_ROOT=${REMOTE_QATZIP_ROOT}"
+
+
+function app_echo
+{
+    local msg=${1:-}
+    echo "REMOTE: $msg"
+}
+
+
+function print_usage_then_die
+{
+    app_echo "Usage: $0 <host> <path_to_script> ['script_args']"
+    exit 1
+}
+
+
+QAT_SERVER=${1:-}
+SCRIPT_TO_RUN=${2:-}
+SCRIPT_ARGS=${3:-}
+
+
+[[ -z "${QAT_SERVER}" ]] && print_usage_then_die
+app_echo "Do execute cmd: $0 ${QAT_SERVER} ${SCRIPT_TO_RUN} ${SCRIPT_ARGS}"
+
+
+function run_script
+{
+    local script_to_run="$1"
+    local script_args="${2:-}"
+
+    # Ensure that we have a directory in remote host to put scripts
+    ssh ${QAT_SERVER} "mkdir -p ${REMOTE_PROJECT_ROOT}"
+
+    scp -q ${SCRIPT_TO_RUN} ${QAT_SERVER}:${REMOTE_PROJECT_ROOT}/ && \
+        ssh ${QAT_SERVER} "cd ${REMOTE_PROJECT_ROOT} && bash ${script_to_run} ${script_args}"
+}
+
+
+run_script ${SCRIPT_TO_RUN} "${SCRIPT_ARGS}"
+
+
+exit 0

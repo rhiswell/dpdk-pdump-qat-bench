@@ -31,19 +31,19 @@ cd ${PDUMP_DIR}
 
 function kill_pdumpd
 {
-    (test -e /var/run/pdump/pdump.pid && kill -INT $(cat /var/run/pdump/pdump.pid) && app_echo "Old job is killed") || app_echo "WARN: no running pdumpd"
-    rm -rf /var/run/pdump
+    (test -e /var/run/pdump.pid && kill -INT $(cat /var/run/pdump.pid) && app_echo "Old job is killed") || app_echo "WARN: no running pdumpd"
+    rm -f /var/run/pdump.pid
 }
 
 
 function start_pdumpd
 {
-    mkdir -p /var/run/pdump/
     rm -f /tmp/${OUTPUT_PCAP}
 
-    ./dpdk-pdump -- --pdump "port=0,queue=*,rx-dev=${OUTPUT_PCAP}" > pdump.log 2>&1 & \
-        echo -n $! > /var/run/pdump/pdump.pid
-    app_echo "New job is running by pid $(cat /var/run/pdump/pdump.pid)"
+    ./dpdk-pdump -- --pdump "port=0,queue=*,rx-dev=${OUTPUT_PCAP}" > /var/log/pdump.log 2>&1 & \
+        echo -n $! > /var/run/pdump.pid
+    app_echo "Wait 10s for pdumpd becoming ready" && sleep 10
+    app_echo "New job is running by pid $(cat /var/run/pdump.pid)"
 }
 
 

@@ -1,12 +1,26 @@
 #!/bin/bash
 #
-# This script should execute in local host.
+# Architecture overview:
+#
+#   ALICE (remote)                          BOB (remote)
+# |---------------|                     |--------|-------|
+# |     PKTGEN    |-10Gbps TCP traffic->| RECVER + PDUMP |
+# |---------------|                     |--------|-------|
+#         ^                                      ^
+#         |--------------------------------------|
+#         |
+# |---------------|
+# | ./this_script |
+# |---------------|
+#       LOCAL
 #
 
 set -ueo pipefail
 
-ALICE=${1:-qat0}
-BOB=${2:-qat1}
+
+CMD=${1:-test}
+ALICE=${2:-qat0}
+BOB=${3:-qat1}
 
 
 function app_echo
@@ -18,36 +32,85 @@ function app_echo
 
 function print_usage_then_die
 {
-    app_echo "Usage: $0 <sender> <receiver>"
+    app_echo "Usage: $0 <command> <sender> <receiver>"
     exit 1
 }
 
 
-([[ -z "$ALICE" ]] || [[ -z "$BOB" ]]) && print_usage_then_die
+([[ -z "$CMD" ]] || [[ -z "$ALICE" ]] || [[ -z "$BOB" ]]) && print_usage_then_die
 
 
-# \begin collect data
-test -e ./remote && test -e pdumpd.sh && test -e receiverd.sh && \
-    test -e issue_traffic.sh && test -e pdiff.py
-echo -e "\n\n\n===STAGE 0: run receiverd"
-./remote $BOB run receiverd.sh 'restart'
-echo -e "\n\n\n===STAGE 1: run pdumpd"
-./remote $BOB run pdumpd.sh 'restart /tmp/rx.pcap'
-echo -e "\n\n\n===STAGE 2: issue traffic"
-./remote $ALICE run issue_traffic.sh 'pcaplist.txt'
-# \end collect data
+mkdir -p output
 
 
-# \begin analyzing
-echo -e "\n\n\n===STAGE 3: kill all detached jobs"
-./remote $BOB run pdumpd.sh stop
-./remote $BOB run receiverd.sh stop
+function tell_synopsis
+{
+    echo -e "\n\n\n===STAGE 4: parse logs and give synopsis"
+    test -e output/pktgen_tx.log && test -e output/pktgen_rx.log && test -e output/pdump.log
 
-# Fetch received pkts.pcap to make comparsion with issued pkts.pcap
-echo -e "\n\n\n===STAGE 4: do render graph of difference between input/val2017.pcap (origin) and /tmp/rx.pcap (received)..."
-scp -q $BOB:/tmp/rx.pcap output/val2017.rx.pcap && \
-    ./pdiff.py input/val2017.pcap output/val2017.rx.pcap
-# \end analyzing
+    echo -e "Total sent:     $(cat output/pktgen_tx.log | grep "Total" | tail -n1 | awk -F' ' '{ print $4 }')"
+    echo -e "Total received: $(cat output/pktgen_rx.log | grep "Total" | tail -n1 | awk -F' ' '{ print $4 }')"
+    cat output/pdump.log | grep -A4 "STATS" | tail -n4
+}
+
+
+function visualize_diff
+{
+    echo -e "\n\n\n===STAGE 4: do render graph of difference between input/val2017.pcap (origin) and /tmp/rx.pcap (received)..."
+    test -e pdiff.py && test -e output/rx.pcap
+    ./pdiff.py input/val2017.pcap output/rx.pcap
+}
+
+
+function run_test
+{
+    echo -e "\n\n\n===STAGE X: test start"
+
+    # \begin test
+    test -e ./remote_run && test -e pdumpd.sh && test -e receiverd.sh && test -e issue_traffic.sh
+
+    echo -e "\n\n\n===STAGE 0: run receiverd"
+    ./remote_run $BOB receiverd.sh 'restart'
+    echo -e "\n\n\n===STAGE 1: run pdumpd"
+    ./remote_run $BOB pdumpd.sh 'restart /tmp/rx.pcap'
+    echo -e "\n\n\n===STAGE 2: issue traffic"
+    ./remote_run $ALICE issue_traffic.sh 'pcaplist.txt'
+    # \end test
+
+    # \begin clean resources
+    echo -e "\n\n\n===STAGE 3: kill all detached jobs"
+    ./remote_run $BOB pdumpd.sh stop
+    ./remote_run $BOB receiverd.sh stop
+    # \end clean resources
+
+    # \begin analyze and tell synopsis
+    echo -e "\n\n\n===STAGE 4: collect output data and do some analysis"
+    scp $ALICE:/var/log/pktgen_tx.log output/pktgen_tx.log
+    scp $BOB:/tmp/rx.pcap output/rx.pcap
+    scp $BOB:/var/log/pktgen_rx.log output/pktgen_rx.log
+    scp $BOB:/var/log/pdump.log output/pdump.log
+
+    tell_synopsis
+    #visualize_diff
+    # \end analyze and tell synopsis
+
+    echo -e "\n\n\n===STAGE Y: test end"
+}
+
+
+case $CMD in
+    test)
+        run_test
+        ;;
+    syno)
+        tell_synopsis
+        ;;
+    diff)
+        visualize_diff
+        ;;
+    *)
+        print_usage_then_die
+esac
 
 
 exit 0

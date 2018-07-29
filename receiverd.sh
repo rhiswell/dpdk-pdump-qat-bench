@@ -29,19 +29,17 @@ cd $PKTGEN_DIR
 
 function stop_receiverd
 {
-    (test -e /var/run/pktgen/pktgen.pid && kill -INT $(cat /var/run/pktgen/pktgen.pid) && app_echo "Old job is killed") || app_echo "WARN: no running receiverd"
-    rm -rf /var/run/pktgen
+    (test -e /var/run/pktgen.pid && kill -INT $(cat /var/run/pktgen.pid) && app_echo "Old job is killed") || app_echo "WARN: no running receiverd"
+    rm -f /var/run/pktgen.pid
 }
 
 
 function start_receiverd
 {
-    mkdir -p /var/run/pktgen
-
-    ./build/pktgen -- -c config -f rx > pktgen.log 2>&1 & \
-        echo -n $! > /var/run/pktgen/pktgen.pid
+    ./build/pktgen -c 0x0f -- -c config -f rx > /var/log/pktgen_rx.log 2>&1 & \
+        echo -n $! > /var/run/pktgen.pid
     app_echo "Sleep for 20s to wait for receiverd becoming ready" && sleep 20
-    app_echo "New job is running by pid $(cat /var/run/pktgen/pktgen.pid)"
+    app_echo "New job is running by pid $(cat /var/run/pktgen.pid)"
 }
 
 case $CMD in
