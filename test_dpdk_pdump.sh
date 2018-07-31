@@ -98,9 +98,63 @@ function run_test
 }
 
 
+function gen_flamegraph
+{
+    local fin="output/pdump_perfrecord.out"
+    test -e $fin && \
+        ./FlameGraph/stackcollapse-perf.pl $fin > $fin.folded && \
+        ./FlameGraph/flamegraph.pl $fin.folded > $fin.folded.svg
+}
+
+
+function run_test_with_perf_record
+{
+    echo -e "\n\n\n===STAGE X: start test with perf record"
+
+    # \begin test
+    test -e ./remote_run && test -e pdumpd.sh && test -e receiverd.sh && \
+        test -e issue_traffic.sh && test -e perfrecordd.sh
+
+    echo -e "\n\n\n===STAGE 0: run receiverd"
+    ./remote_run $BOB receiverd.sh 'restart'
+    echo -e "\n\n\n===STAGE 1: run pdumpd"
+    ./remote_run $BOB pdumpd.sh 'restart /tmp/rx.pcap'
+    echo -e "\n\n\n===STAGE 1: run perfrecordd to perf-record pdumpd"
+    ./remote_run $BOB perfrecordd.sh 'start $(cat /var/run/pdump.pid)'
+    echo -e "\n\n\n===STAGE 2: issue traffic"
+    ./remote_run $ALICE issue_traffic.sh 'pcaplist.txt'
+    # \end test
+
+    # \begin clean resources
+    echo -e "\n\n\n===STAGE 3: kill all detached jobs"
+    ./remote_run $BOB perfrecordd.sh stop
+    ./remote_run $BOB pdumpd.sh stop
+    ./remote_run $BOB receiverd.sh stop
+    # \end clean resources
+
+    # \begin analyze and tell synopsis
+    echo -e "\n\n\n===STAGE 4: collect output data and do some analysis"
+    scp $ALICE:/var/log/pktgen_tx.log output/pktgen_tx.log
+    scp $BOB:/tmp/rx.pcap output/rx.pcap
+    scp $BOB:/var/log/pktgen_rx.log output/pktgen_rx.log
+    scp $BOB:/var/log/pdump.log output/pdump.log
+    scp $BOB:/tmp/perf.data.out output/pdump_perfrecord.out
+
+    gen_flamegraph
+    tell_synopsis
+    #visualize_diff
+    # \end analyze and tell synopsis
+
+    echo -e "\n\n\n===STAGE Y: end test with perf record"
+}
+
+
 case $CMD in
     test)
         run_test
+        ;;
+    perf)
+        run_test_with_perf_record
         ;;
     syno)
         tell_synopsis

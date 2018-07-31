@@ -36,7 +36,7 @@ function stop_receiverd
 
 function start_receiverd
 {
-    ./build/pktgen -c 0x0f -- -c config -f rx > /var/log/pktgen_rx.log 2>&1 & \
+    ./build/pktgen -c 0x0e -- -c config -f rx > /var/log/pktgen_rx.log 2>&1 & \
         echo -n $! > /var/run/pktgen.pid
     app_echo "Sleep for 20s to wait for receiverd becoming ready" && sleep 20
     app_echo "New job is running by pid $(cat /var/run/pktgen.pid)"
