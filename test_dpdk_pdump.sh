@@ -86,7 +86,7 @@ function run_test
     # \begin analyze and tell synopsis
     echo -e "\n\n\n===STAGE 4: collect output data and do some analysis"
     scp $ALICE:/var/log/pktgen_tx.log output/pktgen_tx.log
-    scp $BOB:/tmp/rx.pcap output/rx.pcap
+    scp $BOB:/tmp/rx.pcap.gz output/rx.pcap.gz
     scp $BOB:/var/log/pktgen_rx.log output/pktgen_rx.log
     scp $BOB:/var/log/pdump.log output/pdump.log
 
@@ -135,7 +135,7 @@ function run_test_with_perf_record
     # \begin analyze and tell synopsis
     echo -e "\n\n\n===STAGE 4: collect output data and do some analysis"
     scp $ALICE:/var/log/pktgen_tx.log output/pktgen_tx.log
-    scp $BOB:/tmp/rx.pcap output/rx.pcap
+    scp $BOB:/tmp/rx.pcap.gz output/rx.pcap.gz
     scp $BOB:/var/log/pktgen_rx.log output/pktgen_rx.log
     scp $BOB:/var/log/pdump.log output/pdump.log
     scp $BOB:/tmp/perf.data.out output/pdump_perfrecord.out

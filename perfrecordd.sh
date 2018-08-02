@@ -41,7 +41,7 @@ function do_start
 
 function do_stop
 {
-    (test -e /var/run/perfrecordd.pid && kill -INT $(cat /var/run/perfrecordd.pid) && app_echo "Old job is killed") || \
+    (test -e /var/run/perfrecordd.pid && kill -INT $(cat /var/run/perfrecordd.pid) && sleep 2 && app_echo "Old job is killed") || \
         app_echo "WARN: no running perfrecordd"
     (test -e $FOUT && perf script -i $FOUT > $FOUT.out) || \
         app_echo "WARN: perf-record probabily failed to generate perf.data"
